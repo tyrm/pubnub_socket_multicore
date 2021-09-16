@@ -136,15 +136,19 @@ void mainTask( void * parameter)
     if (xQueueReceive(cmdQueue, (void *)&command, 10) == pdTRUE) {
       if (command) {
         socketDesiredState = true;
-        Serial.println("cmd: state=true");
+        Serial.print(millis(), DEC);
+        Serial.println(" - cmd: state=true");
       } else {
         socketDesiredState = false;
-        Serial.println("cmd: state=false");
+        Serial.print(millis(), DEC);
+        Serial.println(" - cmd: state=false");
       }
     }
     
     // See if there's a serial message in the queue (do not block)
     if (xQueueReceive(serQueue, (void *)&rcv_msg, 10) == pdTRUE) {
+      Serial.print(millis(), DEC);
+      Serial.print(" - ");
       Serial.println(rcv_msg.body);
     }
   }

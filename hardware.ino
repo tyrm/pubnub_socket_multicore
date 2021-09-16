@@ -11,11 +11,15 @@ void loop_hardware() {
       set_dis_buff(0x00, 0xff, 0x00);
       M5.dis.displaybuff(disBuff);
       socket.SetPowerOn();
+      Serial.print(millis(), DEC);
+      Serial.println(" - turned on");
     } else {
       socketState = false;
       set_dis_buff(0xff, 0x00, 0x00);
       M5.dis.displaybuff(disBuff);
       socket.SetPowerOff();
+      Serial.print(millis(), DEC);
+      Serial.println(" - turned off");
     }
   }
 }
