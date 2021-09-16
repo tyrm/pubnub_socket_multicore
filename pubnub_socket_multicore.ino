@@ -69,15 +69,48 @@ void loop() {
  
 void subscriberTask( void * parameter )
 {
-  unsigned long lastSend = 0;
-  unsigned int idx = 0;
+  StaticJsonDocument<254> pubjd;  
+  unsigned int stateInt = 0;
   while (1) {
-    if (millis() > lastSend + 5000) {
-      lastSend = millis();
-      xQueueSend(queue, &idx, 0);
-      idx++;
-    }
     //vTaskDelay(10 / portTICK_PERIOD_MS);
+    
+    Serial.println("waiting for a message (subscribe)");
+    PubSubClient* subclient = PubNub.subscribe(commandChan);
+    if (!subclient) {
+      Serial.println("subscription error");
+      delay(1000);
+      return;
+    }
+    
+    String           msg;
+    SubscribeCracker ritz(subclient);
+    while (!ritz.finished()) {
+      ritz.get(msg);
+      if (msg.length() > 0) {
+        Serial.print("Received: ");
+        Serial.println(msg);
+        
+        pubjd.clear();
+        deserializeJson(pubjd, msg);
+  
+        if (!pubjd.containsKey("state")) {
+          Serial.println("state missing");
+        } else {
+          bool state = pubjd["state"].as<bool>();
+          Serial.print("got state: "); Serial.println(state);
+  
+          if (state) {
+            stateInt = 1;
+          } else {
+            stateInt = 0;
+          }
+          
+          xQueueSend(queue, &stateInt, 0);
+        }
+      }
+    }
+  
+    subclient->stop();
   }
 }
  
