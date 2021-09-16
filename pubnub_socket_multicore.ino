@@ -2,17 +2,15 @@
 #include <ArduinoJson.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
+
 #define PubNub_BASE_CLIENT WiFiClient
 #include <PubNub.h>
 
 #include "secrets.h"
 
-// Message struct: used to wrap strings (not necessary, but it's useful to see
-// how to use structs here)
-typedef struct Message {
+typedef struct SerialMessage {
   char body[20];
-  int count;
-} Message;
+} SerialMessage;
 
 // led
 uint8_t disBuff[2 + 5 * 5 * 3];
@@ -22,9 +20,11 @@ bool blinkState = true;
 const char* wifiSSID = WIFI_SSID;
 const char* wifiPass = WIFI_PASSWORD;
 
-// queue
-QueueHandle_t queue;
+// queues
 int queueSize = 10;
+
+QueueHandle_t cmdQueue;
+QueueHandle_t serQueue;
 
 // punub
 const char* pnPubKey = PN_PUB_KEY;
@@ -38,10 +38,17 @@ void setup() {
   setup_hardware();
   setup_wifi();
   setup_pubsub();
+
+  // create command queue
+  cmdQueue = xQueueCreate( queueSize, sizeof( bool ) );
+  if(cmdQueue == NULL){
+    Serial.println("Error creating the command queue");
+  }
  
-  queue = xQueueCreate( queueSize, sizeof( int ) );
-  if(queue == NULL){
-    Serial.println("Error creating the queue");
+  // create serial message queue
+  serQueue = xQueueCreate( queueSize, sizeof( SerialMessage ) );
+  if(serQueue == NULL){
+    Serial.println("Error creating the serial messagequeue");
   }
  
   xTaskCreatePinnedToCore(
@@ -69,17 +76,18 @@ void loop() {
  
 void subscriberTask( void * parameter )
 {
-  StaticJsonDocument<254> pubjd;  
-  unsigned int stateInt = 0;
+  SerialMessage msg;
+  StaticJsonDocument<254> pubjd;
   while (1) {
-    //vTaskDelay(10 / portTICK_PERIOD_MS);
-    
-    Serial.println("waiting for a message (subscribe)");
+    strcpy(msg.body, "waiting for message");
+    xQueueSend(serQueue, (void *)&msg, 10);
+
     PubSubClient* subclient = PubNub.subscribe(commandChan);
     if (!subclient) {
-      Serial.println("subscription error");
-      delay(1000);
-      return;
+      strcpy(msg.body, "subscription error");
+      xQueueSend(serQueue, (void *)&msg, 10);
+      vTaskDelay(1000 / portTICK_PERIOD_MS);
+      continue;
     }
     
     String           msg;
@@ -87,43 +95,44 @@ void subscriberTask( void * parameter )
     while (!ritz.finished()) {
       ritz.get(msg);
       if (msg.length() > 0) {
-        Serial.print("Received: ");
-        Serial.println(msg);
+        //Serial.print("Received: ");
+        //Serial.println(msg);
         
         pubjd.clear();
         deserializeJson(pubjd, msg);
   
-        if (!pubjd.containsKey("state")) {
-          Serial.println("state missing");
-        } else {
+        if (pubjd.containsKey("state")) {
           bool state = pubjd["state"].as<bool>();
-          Serial.print("got state: "); Serial.println(state);
-  
-          if (state) {
-            stateInt = 1;
-          } else {
-            stateInt = 0;
-          }
-          
-          xQueueSend(queue, &stateInt, 0);
+          xQueueSend(cmdQueue, &state, 0);
         }
       }
     }
   
     subclient->stop();
   }
+  
+  //vTaskDelay(10 / portTICK_PERIOD_MS);
 }
  
 void mainTask( void * parameter)
 {
-  int element;
+  bool command;
+  SerialMessage rcv_msg;
   while (1) {
     loop_hardware();
     
-    // See if there's a message in the queue (do not block)
-    if (xQueueReceive(queue, (void *)&element, 10) == pdTRUE) {
-      Serial.print(element);
-      Serial.print("|");
+    // See if there's a command in the queue (do not block)
+    if (xQueueReceive(cmdQueue, (void *)&command, 10) == pdTRUE) {
+      if (command) {
+        Serial.print("true|");
+      } else {
+        Serial.print("false|");
+      }
+    }
+    
+    // See if there's a serial message in the queue (do not block)
+    if (xQueueReceive(serQueue, (void *)&rcv_msg, 10) == pdTRUE) {
+      Serial.println(rcv_msg.body);
     }
   }
 }
