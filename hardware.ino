@@ -1,5 +1,19 @@
 void loop_hardware() {
   M5.update();
+  
+  if (socketState != socketDesiredState) {
+    if (socketDesiredState) {
+      socketState = true;
+      set_dis_buff(0x00, 0xff, 0x00);
+      M5.dis.displaybuff(disBuff);
+      socket.SetPowerOn();
+    } else {
+      socketState = false;
+      set_dis_buff(0xff, 0x00, 0x00);
+      M5.dis.displaybuff(disBuff);
+      socket.SetPowerOff();
+    }
+  }
 }
 
 void set_dis_buff(uint8_t Rdata, uint8_t Gdata, uint8_t Bdata) {
@@ -25,4 +39,7 @@ void setup_hardware() {
   vTaskDelay(100 / portTICK_PERIOD_MS);
   set_dis_buff(0x00, 0x00, 0xff);
   M5.dis.displaybuff(disBuff);
+
+  // start Socket
+  socket.Init(AtomSerial, RELAY, RXD);
 }

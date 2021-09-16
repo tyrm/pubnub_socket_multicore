@@ -7,9 +7,11 @@ void setup_pubsub() {
   snprintf(commandChan, sizeof(commandChan), "command.%s", uuid);
   snprintf(stateChan, sizeof(stateChan), "state.%s", uuid);
 
-  Serial.print("my uuid is: "); Serial.println(uuid);
+  Serial.print(millis(), DEC);
+  Serial.print(" - PubNub: my uuid is: "); Serial.println(uuid);
   
   PubNub.begin(pnPubKey, pnSubKey);
   PubNub.set_uuid(uuid);
-  Serial.println("PubNub set up");
+  Serial.print(millis(), DEC);
+  Serial.println(" - PubNub: set up complete");
 }

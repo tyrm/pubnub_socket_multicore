@@ -1,8 +1,8 @@
 #include <M5Atom.h>
+#include "AtomSocket.h"
 #include <ArduinoJson.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
-
 #define PubNub_BASE_CLIENT WiFiClient
 #include <PubNub.h>
 
@@ -20,12 +20,6 @@ bool blinkState = true;
 const char* wifiSSID = WIFI_SSID;
 const char* wifiPass = WIFI_PASSWORD;
 
-// queues
-int queueSize = 10;
-
-QueueHandle_t cmdQueue;
-QueueHandle_t serQueue;
-
 // punub
 const char* pnPubKey = PN_PUB_KEY;
 const char* pnSubKey = PN_SUB_KEY;
@@ -33,6 +27,21 @@ const char* pnSubKey = PN_SUB_KEY;
 char uuid[]        = "00000000-0000-0000-0000-000000000000";
 char commandChan[] = "command.00000000-0000-0000-0000-000000000000";
 char stateChan[]   = "state.00000000-0000-0000-0000-000000000000";
+
+// queues
+int queueSize = 10;
+
+QueueHandle_t cmdQueue;
+QueueHandle_t serQueue;
+
+// socket
+#define RXD 22
+#define RELAY 23
+
+bool           socketDesiredState = false;
+bool           socketState = false;
+ATOMSOCKET     socket;
+HardwareSerial AtomSerial(2);
 
 void setup() {
   setup_hardware();
@@ -52,20 +61,20 @@ void setup() {
   }
  
   xTaskCreatePinnedToCore(
-    subscriberTask,     /* Task function. */
-    "subscriber",       /* String with name of task. */
+    subscriberTask,   /* Task function. */
+    "subscriber",     /* String with name of task. */
     10000,            /* Stack size in words. */
     NULL,             /* Parameter passed as input of the task */
     1,                /* Priority of the task. */
-    NULL, 1);            /* Task handle. */
+    NULL, 1);         /* Task handle. */
  
   xTaskCreatePinnedToCore(
-    mainTask,     /* Task function. */
-    "main",       /* String with name of task. */
+    mainTask,         /* Task function. */
+    "main",           /* String with name of task. */
     10000,            /* Stack size in words. */
     NULL,             /* Parameter passed as input of the task */
     1,                /* Priority of the task. */
-    NULL, 0);            /* Task handle. */
+    NULL, 0);         /* Task handle. */
  
   // Delete "setup and loop" task
   vTaskDelete(NULL);
@@ -76,16 +85,17 @@ void loop() {
  
 void subscriberTask( void * parameter )
 {
-  SerialMessage msg;
+  SerialMessage           serMsg;
   StaticJsonDocument<254> pubjd;
   while (1) {
-    strcpy(msg.body, "waiting for message");
-    xQueueSend(serQueue, (void *)&msg, 10);
-
+    strcpy(serMsg.body, "waiting for message");
+    xQueueSend(serQueue, (void *)&serMsg, 10);
+    
     PubSubClient* subclient = PubNub.subscribe(commandChan);
     if (!subclient) {
-      strcpy(msg.body, "subscription error");
-      xQueueSend(serQueue, (void *)&msg, 10);
+      strcpy(serMsg.body, "subscription error");
+      xQueueSend(serQueue, (void *)&serMsg, 10);
+      
       vTaskDelay(1000 / portTICK_PERIOD_MS);
       continue;
     }
@@ -95,9 +105,6 @@ void subscriberTask( void * parameter )
     while (!ritz.finished()) {
       ritz.get(msg);
       if (msg.length() > 0) {
-        //Serial.print("Received: ");
-        //Serial.println(msg);
-        
         pubjd.clear();
         deserializeJson(pubjd, msg);
   
@@ -113,20 +120,26 @@ void subscriberTask( void * parameter )
   
   //vTaskDelay(10 / portTICK_PERIOD_MS);
 }
- 
+
 void mainTask( void * parameter)
 {
   bool command;
   SerialMessage rcv_msg;
+  
+  set_dis_buff(0xff, 0x00, 0x00);
+  M5.dis.displaybuff(disBuff);
+  
   while (1) {
     loop_hardware();
     
     // See if there's a command in the queue (do not block)
     if (xQueueReceive(cmdQueue, (void *)&command, 10) == pdTRUE) {
       if (command) {
-        Serial.print("true|");
+        socketDesiredState = true;
+        Serial.println("cmd: state=true");
       } else {
-        Serial.print("false|");
+        socketDesiredState = false;
+        Serial.println("cmd: state=false");
       }
     }
     
