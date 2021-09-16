@@ -44,21 +44,21 @@ void setup() {
     Serial.println("Error creating the queue");
   }
  
-  xTaskCreate(
+  xTaskCreatePinnedToCore(
     subscriberTask,     /* Task function. */
     "subscriber",       /* String with name of task. */
     10000,            /* Stack size in words. */
     NULL,             /* Parameter passed as input of the task */
     1,                /* Priority of the task. */
-    NULL);            /* Task handle. */
+    NULL, 1);            /* Task handle. */
  
-  xTaskCreate(
+  xTaskCreatePinnedToCore(
     mainTask,     /* Task function. */
     "main",       /* String with name of task. */
     10000,            /* Stack size in words. */
     NULL,             /* Parameter passed as input of the task */
     1,                /* Priority of the task. */
-    NULL);            /* Task handle. */
+    NULL, 0);            /* Task handle. */
  
   // Delete "setup and loop" task
   vTaskDelete(NULL);
@@ -69,12 +69,16 @@ void loop() {
  
 void subscriberTask( void * parameter )
 {
-  for( int i = 0;i<queueSize;i++ ){
-    xQueueSend(queue, &i, portMAX_DELAY);
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
+  unsigned long lastSend = 0;
+  unsigned int idx = 0;
+  while (1) {
+    if (millis() > lastSend + 5000) {
+      lastSend = millis();
+      xQueueSend(queue, &idx, 0);
+      idx++;
+    }
+    //vTaskDelay(10 / portTICK_PERIOD_MS);
   }
-
-  vTaskDelete( NULL );
 }
  
 void mainTask( void * parameter)
