@@ -1,5 +1,9 @@
 void loop_hardware() {
   M5.update();
+
+  if (M5.Btn.wasPressed()) {
+    socketDesiredState = !socketDesiredState;
+  }
   
   if (socketState != socketDesiredState) {
     if (socketDesiredState) {
