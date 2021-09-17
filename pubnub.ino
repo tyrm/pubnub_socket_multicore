@@ -1,3 +1,15 @@
+void pub_state(bool state) {
+  char stateMsg[15];
+
+  if (state) {
+    strcpy(stateMsg, "{\"state\":true}");
+  } else {
+    strcpy(stateMsg, "{\"state\":false}");
+  }
+  
+  PubNonSubClient *pclient = PubNub.publish(stateChan, stateMsg);
+}
+
 void setup_pubsub() {
   uint32_t chipId    = 0;
   for(int i=0; i<17; i=i+8) {

@@ -13,6 +13,7 @@ void loop_hardware() {
       socket.SetPowerOn();
       Serial.print(millis(), DEC);
       Serial.println(" - turned on");
+      pub_state(true);
     } else {
       socketState = false;
       set_dis_buff(0xff, 0x00, 0x00);
@@ -20,7 +21,26 @@ void loop_hardware() {
       socket.SetPowerOff();
       Serial.print(millis(), DEC);
       Serial.println(" - turned off");
+      pub_state(true);
     }
+  }
+
+  // check for reading
+  socket.SerialReadLoop();
+  if(socket.SerialRead == 1 && millis() > lastStatsSend + 5000) {
+    lastStatsSend = millis();
+    socketVoltage = socket.GetVol();
+    socketCurrent = socket.GetCurrent();
+    socketActivePower = socket.GetActivePower();
+    Serial.print("Voltage: ");
+    Serial.print(socketVoltage);
+    Serial.println(" V");
+    Serial.print("Current: ");
+    Serial.print(socketCurrent);
+    Serial.println(" A");
+    Serial.print("ActivePower: ");
+    Serial.print(socketActivePower);
+    Serial.println(" W");
   }
 }
 

@@ -38,10 +38,15 @@ QueueHandle_t serQueue;
 #define RXD 22
 #define RELAY 23
 
-bool           socketDesiredState = false;
-bool           socketState = false;
 ATOMSOCKET     socket;
 HardwareSerial AtomSerial(2);
+
+bool  socketState, socketDesiredState = false;
+int   socketVoltage, socketActivePower = 0;
+float socketCurrent = 0;
+
+// misc
+unsigned long lastStatsSend = 0;
 
 void setup() {
   setup_hardware();

@@ -105,10 +105,10 @@ float ATOMSOCKET::GetCurrentAnalog()
 float ATOMSOCKET::GetActivePower()
 { float FPowerPar = PowerPar;
   float FPowerData = PowerData;
-  Serial.print("FPowerData:");
-  Serial.println(FPowerData);
-  Serial.print("FPowerPar:");
-  Serial.println(FPowerPar);
+  //Serial.print("FPowerData:");
+  //Serial.println(FPowerData);
+  //Serial.print("FPowerPar:");
+  //Serial.println(FPowerPar);
   float Power = (FPowerPar/FPowerData) * VF * CF; 
   return Power;
 }
